@@ -15,7 +15,12 @@ if [ -v $DOCKER_IMAGE ]; then
 	DOCKER_IMAGE=emarteca/npm-filter:latest
 fi
 
-docker run --mount type=bind,source=`pwd`/local_mount,destination=/mount \
+if [ -v $ENGINE]; then
+	ENGINE=docker
+fi
+
+
+$ENGINE run --mount type=bind,source=`pwd`/local_mount,destination=/mount \
 		   --volume `pwd`/npm_filter_docker_results:/home/npm-filter/results \
 		   --volume `pwd`/docker_configs:/home/npm-filter/docker_configs\
 		   -w /home/npm-filter \
