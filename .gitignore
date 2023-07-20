@@ -18,3 +18,5 @@ input_list_scripts/*_deps_repos.txt
 **/.cache/*
 nohup.out
 job.log
+
+npm-filter.sif

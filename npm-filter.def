@@ -1,0 +1,52 @@
+Bootstrap: library
+From: ubuntu:20.04
+
+%post
+    apt-get -y update
+    apt-get -y install python3 git unzip vim curl python3-pip
+    git config --global http.sslVerify "false"
+    pip3 install xmltodict pandas 
+
+    mkdir /nvm
+    export NVM_DIR=/nvm
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | /usr/bin/bash
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # this loads nvm
+
+    node_version='v18.16.0' # default to just the latest LTS version
+    npm_version='*'
+
+    nvm install $node_version
+    nvm use $node_version
+
+    if [[ $npm_version == "*" ]]; then
+        nvm install-latest-npm
+    else
+        npm install -g npm@${npm_version}
+    fi
+
+    NVM_DIR=/root/.nvm
+    NODE_VERSION=`node --version`
+
+    echo "export NODE_VERSION=\"$NODE_VERSION\"" >> /envfile
+    echo "export NVM_DIR=$NVM_DIR" >> /envfile
+    echo "export NODE_PATH=$NVM_DIR/$NODE_VERSION/lib/node_modules" >> /envfile
+    echo "export PATH=$NVM_DIR/$NODE_VERSION/bin:$PATH" >> /envfile
+
+    echo "set -x" >> /npm-filter/runscript.sh
+    echo "mkdir -p output/" >> /npm-filter/runscript.sh
+    echo "source /envfile" >> /npm-filter/runscript.sh
+    echo 'python3 /npm-filter/src/diagnose_github_repo.py --output_dir output/ "$@"' >> /npm-filter/runscript.sh
+
+    npm config set strict-ssl false
+    npm install -g jest mocha tap ava nyc yarn next
+
+%files
+    get_rel_project_reqs.js /npm-filter/get_rel_project_reqs.js
+    src /npm-filter
+
+
+%environment
+    export LC_ALL=C
+
+%runscript
+    exec bash /npm-filter/runscript.sh "$@"
