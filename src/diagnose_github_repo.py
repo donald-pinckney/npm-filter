@@ -33,6 +33,7 @@ class RepoWalker():
 	SCRIPTS_OVER_CODE = []
 	CUSTOM_SETUP_SCRIPTS = []
 	CUSTOM_LOCK_FILES = []
+	DEPENDENCY_OVERRIDES = {}
 	QL_QUERIES = []
 
 	DO_INSTALL = True
@@ -106,6 +107,7 @@ class RepoWalker():
 		self.INSTALL_TIMEOUT = cf_dict.get("timeout", self.INSTALL_TIMEOUT)
 		self.CUSTOM_LOCK_FILES = [ os.path.abspath(os.path.dirname(config_file if config_file else __file__)) + "/" + p 
 											for p in cf_dict.get( "custom_lock_files", self.CUSTOM_LOCK_FILES)]
+		self.DEPENDENCY_OVERRIDES = cf_dict.get("dependency_overrides", self.DEPENDENCY_OVERRIDES)
 
 		cf_dict = config_json.get( "build", {})
 		self.TRACK_BUILD = cf_dict.get("track_build", self.TRACK_BUILD)

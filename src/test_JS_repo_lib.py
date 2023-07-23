@@ -14,6 +14,25 @@ def run_command( commands, timeout=None):
 			return( error.encode('utf-8'), error_string.encode('utf-8'), 1) # non-zero return code
 	return( process.stderr, process.stdout, process.returncode)
 
+def apply_overrides(pkg_json, overrides):
+	# If we have matching explicit dependencies, we MUST update them in the pkg_json
+	# See: https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#overrides
+	for name, ver in overrides.items():
+		if pkg_json.get("dependencies", {}).get(name, None):
+			pkg_json["dependencies"][name] = ver
+		if pkg_json.get("devDependencies", {}).get(name, None):
+			pkg_json["devDependencies"][name] = ver
+		if pkg_json.get("peerDependencies", {}).get(name, None):
+			pkg_json["peerDependencies"][name] = ver
+		if pkg_json.get("optionalDependencies", {}).get(name, None):
+			pkg_json["optionalDependencies"][name] = ver
+
+	pkg_json["overrides"] = overrides # this is for npm
+	pkg_json["resolutions"] = overrides # this is for yarn
+
+	with open('package.json', 'w') as f:
+		json.dump(pkg_json, f)
+
 def run_installation( pkg_json, crawler):
 	installation_command = ""
 	installation_debug = "Running Installation\n"
@@ -366,6 +385,9 @@ def diagnose_repo_name(repo_name, crawler, json_out, cur_dir, commit_SHA=None):
 		for custom_lock in crawler.CUSTOM_LOCK_FILES:
 			run_command("cp " + custom_lock + " .")
 
+	if len(crawler.DEPENDENCY_OVERRIDES) != 0:
+		apply_overrides(pkg_json, crawler.DEPENDENCY_OVERRIDES)
+
 	# first, check if there is a custom install
 	# this runs custom scripts the same way as the scripts_over_code below; only 
 	# difference is it's before the npm-filter run
@@ -405,8 +427,10 @@ def diagnose_repo_name(repo_name, crawler, json_out, cur_dir, commit_SHA=None):
 	if manager == "": # default the manager to npm if it wasn't already IDd
 		manager = "npm run "
 
-	if crawler.COMPUTE_DEP_LISTS:
+	if crawler.COMPUTE_DEP_LISTS or crawler.REPORT_INSTALLED_LOCKFILE:
 		json_out["dependencies"] = {}
+
+	if crawler.COMPUTE_DEP_LISTS:
 		if not crawler.DO_INSTALL:
 			print("Can't get dependencies without installing (do_install: false) -- skipping")
 		else:
@@ -416,11 +440,10 @@ def diagnose_repo_name(repo_name, crawler, json_out, cur_dir, commit_SHA=None):
 			json_out["dependencies"]["includes_dev_deps"] = crawler.INCLUDE_DEV_DEPS
 
 	if crawler.REPORT_INSTALLED_LOCKFILE:
-		json_out["installed_lockfile_packages"] = {}
 		if not crawler.DO_INSTALL:
 			print("Can't get installed lockfile without installing (do_install: false) -- skipping")
 		else:
-			print("Getting installed lockfile ()")
+			print("Getting installed lockfile (package-lock.json)")
 			json_out["dependencies"]["installed_lockfile_packages"] = read_installed_lockfile()
 
 	# now, proceed with the build
