@@ -81,6 +81,13 @@ def get_dependencies( pkg_json, manager, include_dev_deps):
 		run_command( "npm install" if manager == "npm run " else manager)
 	return( deps)
 
+def read_installed_lockfile():
+	if not os.path.exists("package-lock.json"):
+		return {}
+	with open("package-lock.json", 'r') as f:
+		installed_lockfile = json.load(f)["packages"]
+	return installed_lockfile
+
 
 def run_build( manager, pkg_json, crawler):
 	build_debug = ""
@@ -407,6 +414,14 @@ def diagnose_repo_name(repo_name, crawler, json_out, cur_dir, commit_SHA=None):
 			dep_list = get_dependencies( pkg_json, manager, crawler.INCLUDE_DEV_DEPS)
 			json_out["dependencies"]["dep_list"] = dep_list
 			json_out["dependencies"]["includes_dev_deps"] = crawler.INCLUDE_DEV_DEPS
+
+	if crawler.REPORT_INSTALLED_LOCKFILE:
+		json_out["installed_lockfile_packages"] = {}
+		if not crawler.DO_INSTALL:
+			print("Can't get installed lockfile without installing (do_install: false) -- skipping")
+		else:
+			print("Getting installed lockfile ()")
+			json_out["dependencies"]["installed_lockfile_packages"] = read_installed_lockfile()
 
 	# now, proceed with the build
 	if crawler.TRACK_BUILD:

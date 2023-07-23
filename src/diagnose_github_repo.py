@@ -38,6 +38,7 @@ class RepoWalker():
 	DO_INSTALL = True
 	INCLUDE_DEV_DEPS = False
 	COMPUTE_DEP_LISTS = False
+	REPORT_INSTALLED_LOCKFILE = False
 	TRACK_BUILD = True
 	TRACK_TESTS = True
 	TEST_VERBOSE_ALL_OUTPUT = False
@@ -98,6 +99,7 @@ class RepoWalker():
 		cf_dict = config_json.get( "dependencies", {})
 		self.INCLUDE_DEV_DEPS = cf_dict.get("include_dev_deps", self.INCLUDE_DEV_DEPS)
 		self.COMPUTE_DEP_LISTS = cf_dict.get("track_deps", self.COMPUTE_DEP_LISTS)
+		self.REPORT_INSTALLED_LOCKFILE = cf_dict.get("report_installed_lockfile", self.REPORT_INSTALLED_LOCKFILE)
 
 		cf_dict = config_json.get( "install", {})
 		self.DO_INSTALL = cf_dict.get("do_install", self.DO_INSTALL)
