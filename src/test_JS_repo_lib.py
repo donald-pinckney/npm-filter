@@ -5,9 +5,6 @@ import os
 from TestInfo import *
 
 def run_command( commands, timeout=None, env=None):
-	if env is None:
-		env = os.environ.copy()
-
 	for command in commands.split(";"):
 		try:
 			process = subprocess.run( command.split(), stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, env=env)
