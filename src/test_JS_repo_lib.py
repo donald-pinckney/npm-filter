@@ -101,9 +101,9 @@ def get_dependencies( pkg_json, manager, include_dev_deps):
 	return( deps)
 
 def read_installed_lockfile():
-	if not os.path.exists("package-lock.json"):
+	if not os.path.exists("node_modules/.package-lock.json"):
 		return {}
-	with open("package-lock.json", 'r') as f:
+	with open("node_modules/.package-lock.json", 'r') as f:
 		installed_lockfile = json.load(f)["packages"]
 	return installed_lockfile
 
@@ -443,7 +443,7 @@ def diagnose_repo_name(repo_name, crawler, json_out, cur_dir, commit_SHA=None):
 		if not crawler.DO_INSTALL:
 			print("Can't get installed lockfile without installing (do_install: false) -- skipping")
 		else:
-			print("Getting installed lockfile (package-lock.json)")
+			print("Getting installed lockfile (node_modules/.package-lock.json)")
 			json_out["dependencies"]["installed_lockfile_packages"] = read_installed_lockfile()
 
 	# now, proceed with the build
