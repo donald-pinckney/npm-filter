@@ -4,10 +4,13 @@ import json
 import os
 from TestInfo import *
 
-def run_command( commands, timeout=None):
+def run_command( commands, timeout=None, env=None):
+	if env is None:
+		env = os.environ.copy()
+
 	for command in commands.split(";"):
 		try:
-			process = subprocess.run( command.split(), stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+			process = subprocess.run( command.split(), stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, env=env)
 		except subprocess.TimeoutExpired:
 			error_string = "TIMEOUT ERROR: for user-specified timeout " + str(timeout) + " seconds"
 			error = "TIMEOUT ERROR"
@@ -312,7 +315,9 @@ def diagnose_package( repo_link, crawler, commit_SHA=None):
 	# if the repo already exists, dont clone it
 	if not os.path.isdir( repo_name):
 		print( "Cloning package repository")
-		error, output, retcode = run_command( "git clone " + repo_link)
+		clone_env = os.environ.copy()
+		clone_env["GIT_TERMINAL_PROMPT"] = "0"
+		error, output, retcode = run_command( "git clone " + repo_link, env=clone_env)
 		if retcode != 0:
 			print("ERROR cloning the repo. Exiting now.")
 			json_out["setup"] = {}
