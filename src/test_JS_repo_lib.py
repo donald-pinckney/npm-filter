@@ -15,6 +15,28 @@ def run_command( commands, timeout=None, env=None):
 	return( process.stderr, process.stdout, process.returncode)
 
 def apply_overrides(pkg_json, overrides):
+	apply_overrides_as_modified_dependency(pkg_json, overrides)
+	# apply_overrides_as_npm_override_field(pkg_json, overrides)
+
+def apply_overrides_as_modified_dependency(pkg_json, overrides):
+	# If we have matching explicit dependencies, we MUST update them in the pkg_json
+	# See: https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#overrides
+	for name, ver in overrides.items():
+		if pkg_json.get("dependencies", {}).get(name, None):
+			pkg_json["dependencies"][name] = ver
+		if pkg_json.get("devDependencies", {}).get(name, None):
+			pkg_json["devDependencies"][name] = ver
+		if pkg_json.get("peerDependencies", {}).get(name, None):
+			pkg_json["peerDependencies"][name] = ver
+		if pkg_json.get("optionalDependencies", {}).get(name, None):
+			pkg_json["optionalDependencies"][name] = ver
+
+	with open('package.json', 'w') as f:
+		json.dump(pkg_json, f)
+
+# This isn't currently used, but it's here in case we want to use it in the future
+# The right methodology for changing dependency versions isn't clear.
+def apply_overrides_as_npm_override_field(pkg_json, overrides):
 	# If we have matching explicit dependencies, we MUST update them in the pkg_json
 	# See: https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#overrides
 	for name, ver in overrides.items():

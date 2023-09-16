@@ -12,17 +12,20 @@ From: ubuntu:20.04
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | /usr/bin/bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # this loads nvm
 
-    node_version='v18.16.0' # default to just the latest LTS version
-    npm_version='*'
+    # node_version='v18.17.1' # default to just the latest LTS version
+    # npm_version='*'
 
-    nvm install $node_version
-    nvm use $node_version
+    # nvm install $node_version
+    # nvm use $node_version
 
-    if [[ $npm_version == "*" ]]; then
-        nvm install-latest-npm
-    else
-        npm install -g npm@${npm_version}
-    fi
+    # if [[ $npm_version == "*" ]]; then
+    #     nvm install-latest-npm
+    # else
+    #     npm install -g npm@${npm_version}
+    # fi
+
+    nvm install 18
+    nvm use 18
 
     NVM_DIR=/root/.nvm
     NODE_VERSION=`node --version`
