@@ -2,6 +2,7 @@ import re
 import subprocess
 import json
 import os
+import time
 from TestInfo import *
 
 def run_command( commands, timeout=None, env=None):
@@ -162,20 +163,19 @@ def run_tests( manager, pkg_json, crawler, repo_name, cur_dir="."):
 		for test_rep_index in range(crawler.TEST_COMMAND_REPEATS):
 			test_rep_id = "" if crawler.TEST_COMMAND_REPEATS == 1 else "testrep_" + str(test_rep_index)
 			print("Running rep " + str(test_rep_index) + " of " + str(crawler.TEST_COMMAND_REPEATS - 1) + ": " + manager + t)
-			error, output, retcode = run_command( manager + t, crawler.TEST_TIMEOUT)
-			test_info = TestInfo( (retcode == 0), error, output, manager, crawler.VERBOSE_MODE)
-			test_info.set_test_command( pkg_json.get("scripts", {})[t])
-			test_info.compute_test_infras()
-			test_info.compute_nested_test_commands( test_scripts)
-			test_info.compute_test_stats()
+			test_command = pkg_json.get("scripts", {})[t]
+			test_infras = TestInfo.get_test_infras_list(test_command, manager)
+			test_verbosity_output = {}
+			# initialize these variables for timing; they'll be set before/after running test commands (resp)
+			start_time = 0
+			end_time = 0
 			# if we're in verbose testing mode (i.e. getting all timing info for each test, etc)
 			# then, we rerun the test commands with all the commands for adding verbose_mode to 
 			# each of the test infras involved (individually)
 			if crawler.TEST_VERBOSE_ALL_OUTPUT:
 				# we're gonna be adding our new custom scripts for verbosity testing
 				run_command( "mv package.json TEMP_package.json_TEMP")
-				test_verbosity_output = {}
-				for verbosity_index, test_infra in enumerate(test_info.test_infras):
+				for verbosity_index, test_infra in enumerate(test_infras):
 					verbose_test_json = crawler.output_dir + "/" \
 										+ "repo_" + repo_name + "_" \
 										+ "test_" + str(test_index) + "_"\
@@ -190,14 +190,17 @@ def run_tests( manager, pkg_json, crawler, repo_name, cur_dir="."):
 					infra_verbosity_args = infra_verbosity_config.get("args", "")
 					infra_verbosity_args_pos = infra_verbosity_config.get("position", -1) # default position is at the end
 					infra_verbosity_post_proc = infra_verbosity_config.get("post_processing", None)
-					infra_verbosity_command, out_files = instrument_test_command_for_verbose(test_info.test_command, test_infra, infra_verbosity_args, 
+					infra_verbosity_command, out_files = instrument_test_command_for_verbose(test_command, test_infra, infra_verbosity_args, 
 																					verbose_test_json, infra_verbosity_args_pos)
 					verbosity_script_name = "instrumented_verbosity_command_" + str(verbosity_index)
 					pkg_json["scripts"][verbosity_script_name] = infra_verbosity_command
 					with open("package.json", 'w') as f:
 						json.dump( pkg_json, f)
 					print("Running verbosity: " + manager + infra_verbosity_command)
-					verb_error, verb_output, verb_retcode = run_command( manager + verbosity_script_name, crawler.TEST_TIMEOUT)
+					# time how long the next line takes
+					start_time = time.time()
+					error, output, retcode = run_command( manager + verbosity_script_name, crawler.TEST_TIMEOUT)
+					end_time = time.time()
 					# if there's post-processing to be done
 					if not infra_verbosity_post_proc is None:
 						for out_file_obj in out_files:
@@ -208,12 +211,30 @@ def run_tests( manager, pkg_json, crawler, repo_name, cur_dir="."):
 					test_verbosity_infra["command"] = infra_verbosity_command
 					test_verbosity_infra["output_files"] = out_files
 					if crawler.VERBOSE_MODE:
-						test_verbosity_infra["test_debug"] = "\nError output: " + verb_error.decode('utf-8') \
-															+ "\nOutput stream: " + verb_output.decode('utf-8')
+						test_verbosity_infra["test_debug"] = "\nError output: " + error.decode('utf-8') \
+															+ "\nOutput stream: " + output.decode('utf-8')
 					test_verbosity_output[test_infra] = test_verbosity_infra
-				test_info.set_test_verbosity_output(test_verbosity_output)
 				# put the package.json back
 				run_command( "mv TEMP_package.json_TEMP package.json")
+			# not verbose test mode -- just run the normal test command
+			# if start and end time are both still zero then no instrumented test commands ran
+			# and so we also rerun here
+			if (not crawler.TEST_VERBOSE_ALL_OUTPUT) or (start_time == 0 and end_time == 0): 
+				start_time = time.time()
+				error, output, retcode = run_command( manager + t, crawler.TEST_TIMEOUT)
+				end_time = time.time()
+			test_info = TestInfo( (retcode == 0), error, output, manager, crawler.VERBOSE_MODE)
+			# the below info on the test infras etc is independent of verbose mode: just based on the command itself
+			test_info.set_test_command( test_command)
+			test_info.compute_test_infras()
+			test_info.compute_nested_test_commands( test_scripts)
+			test_info.start_time = start_time
+			test_info.end_time = end_time
+			# note: if we're running in verbose mode, then the stats will be that of the last executed verbose mode 
+			# instrumented version of the test command
+			test_info.compute_test_stats()
+			if crawler.TEST_VERBOSE_ALL_OUTPUT:
+				test_info.set_test_verbosity_output(test_verbosity_output)
 			# if we're not doing any repeats then don't make another layer of jsons
 			if crawler.TEST_COMMAND_REPEATS == 1:
 				test_output_rep = test_info.get_json_rep()
@@ -222,6 +243,7 @@ def run_tests( manager, pkg_json, crawler, repo_name, cur_dir="."):
 		test_json_summary[t] = test_output_rep
 	return( retcode, test_json_summary)
 
+# instrument the test command specified to make it produce verbose output to a file
 def instrument_test_command_for_verbose(test_script, test_infra, infra_verbosity_args, verbose_test_json, infra_verbosity_args_pos):
 	# replace the output file name with the custom output filename
 	# add an index to the filename for the 2nd,+ time the filename shows up
