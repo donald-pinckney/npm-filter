@@ -1,7 +1,7 @@
 import json
 import xmltodict
 import pandas as pd
- 
+
 # parse the output of mocha xunit reporter to a csv
 # does not delete the original xunit output file
 # outputs include, per test (in this order):
@@ -28,7 +28,16 @@ def parse_mocha_json_to_csv(output_file, new_output_file=None):
     test_runtimes = []
     test_stdout = []
     test_pass_fail = []
-    for test in data_dict.get("testcase", []):
+
+    test_cases = data_dict.get("testcase", [])
+
+    if isinstance(test_cases, dict):
+        test_cases = [test_cases]
+        # If there is a single test case, then the XML doesn't return a list of length one,
+        # it just directly returns the inner element. 
+        # This seems like stupid BS, but we can deal with it like this.
+
+    for test in test_cases:
         test_suites += [test.get("@classname", "").strip()]
         test_names += [test.get("@name", "").strip()]
         test_runtimes += [float(test.get("@time", "NaN"))]
