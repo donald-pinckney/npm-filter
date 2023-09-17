@@ -155,7 +155,7 @@ def run_tests( manager, pkg_json, crawler, repo_name, cur_dir="."):
 	retcode = 0
 	if len(crawler.TRACKED_TEST_COMMANDS) == 0:
 		return(retcode, test_json_summary)
-	test_scripts = [t for t in pkg_json.get("scripts", {}).keys() if not set([ t.find(t_com) for t_com in crawler.TRACKED_TEST_COMMANDS]) == {-1}]
+	test_scripts = [t for t in pkg_json.get("scripts", {}).keys() if (not set([ t.find(t_com) for t_com in crawler.TRACKED_TEST_COMMANDS]) == {-1}) and isinstance(pkg_json.get("scripts", {})[t], str)]
 	test_scripts = [t for t in test_scripts if set([t.find(ig_com) for ig_com in crawler.IGNORED_COMMANDS]) == {-1}]
 	test_scripts = [t for t in test_scripts if set([pkg_json.get("scripts", {})[t].find(ig_sub) for ig_sub in crawler.IGNORED_SUBSTRINGS]) == {-1}]
 	for test_index, t in enumerate(test_scripts):
@@ -356,17 +356,58 @@ def diagnose_package( repo_link, crawler, commit_SHA=None):
 	# if the repo already exists, dont clone it
 	if not os.path.isdir( repo_name):
 		print( "Cloning package repository")
+
 		clone_env = os.environ.copy()
 		clone_env["GIT_TERMINAL_PROMPT"] = "0"
-		# We can't assume that the git clone command automatically clones into a directory with the repo_name.
-		# For example, https://gitlab.com/xsellier/good-winston-reporter.git clones into good-winston-reporter by default.
-		# So we instead force it to clone into the full repo name (good-winston-reporter.git)
-		error, output, retcode = run_command( "git clone " + repo_link + " " + repo_name, env=clone_env)
-		if retcode != 0:
-			print("ERROR cloning the repo. Exiting now.")
-			json_out["setup"] = {}
-			json_out["setup"]["repo_cloning_ERROR"] = True
-			return( on_diagnose_exit( json_out, crawler, cur_dir, repo_name))
+
+		# If we have a full commit SHA (not a shortened one) then we can do a cheaper shallow clone.
+		# See: https://stackoverflow.com/a/43136160
+		# Otherwise, we clone normally
+		if commit_SHA and len(commit_SHA) == 40:
+			os.mkdir(repo_name)
+
+			testing_repos_dir = os.getcwd()
+			os.chdir(repo_name)
+
+			error, output, retcode = run_command( "git init", env=clone_env)
+			if retcode != 0:
+				os.chdir(testing_repos_dir)
+				print("ERROR cloning the repo. Exiting now.")
+				json_out["setup"] = {}
+				json_out["setup"]["repo_cloning_ERROR"] = True
+				return( on_diagnose_exit( json_out, crawler, cur_dir, repo_name))
+
+			error, output, retcode = run_command( "git remote add origin " + repo_link, env=clone_env)
+			if retcode != 0:
+				os.chdir(testing_repos_dir)
+				print("ERROR cloning the repo. Exiting now.")
+				json_out["setup"] = {}
+				json_out["setup"]["repo_cloning_ERROR"] = True
+				return( on_diagnose_exit( json_out, crawler, cur_dir, repo_name))
+
+			print("Fetching specified commit: " + commit_SHA)
+			error, output, retcode = run_command( "git fetch --depth 1 origin " + commit_SHA, env=clone_env)
+			if retcode != 0:
+				os.chdir(testing_repos_dir)
+				print("ERROR fetching specified commit. Exiting now.")
+				json_out["setup"] = {}
+				json_out["setup"]["repo_commit_checkout_ERROR"] = True
+				return( on_diagnose_exit( json_out, crawler, cur_dir, repo_name))
+			
+			os.chdir(testing_repos_dir)
+			
+			# We now want the rest of the script to checkout the magic branch "FETCH_HEAD"
+			commit_SHA = "FETCH_HEAD"
+		else:
+			# We can't assume that the git clone command automatically clones into a directory with the repo_name.
+			# For example, https://gitlab.com/xsellier/good-winston-reporter.git clones into good-winston-reporter by default.
+			# So we instead force it to clone into the full repo name (good-winston-reporter.git)
+			error, output, retcode = run_command( "git clone " + repo_link + " " + repo_name, env=clone_env)
+			if retcode != 0:
+				print("ERROR cloning the repo. Exiting now.")
+				json_out["setup"] = {}
+				json_out["setup"]["repo_cloning_ERROR"] = True
+				return( on_diagnose_exit( json_out, crawler, cur_dir, repo_name))
 	else:
 		print( "Package repository already exists. Using existing directory: " + repo_name)
 	
