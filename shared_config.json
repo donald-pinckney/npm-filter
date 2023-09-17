@@ -1,0 +1,14 @@
+{
+    "dependencies": {
+        "report_installed_lockfile": true
+    },
+    "test": {
+        "test_verbose_all_output": {
+            "do_verbose_tracking": true,
+            "verbose_json_output_file": "verbose_test_report.json"
+        }
+    },
+    "meta_info": {
+        "VERBOSE_MODE": true
+    }
+}

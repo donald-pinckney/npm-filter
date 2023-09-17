@@ -358,7 +358,10 @@ def diagnose_package( repo_link, crawler, commit_SHA=None):
 		print( "Cloning package repository")
 		clone_env = os.environ.copy()
 		clone_env["GIT_TERMINAL_PROMPT"] = "0"
-		error, output, retcode = run_command( "git clone " + repo_link, env=clone_env)
+		# We can't assume that the git clone command automatically clones into a directory with the repo_name.
+		# For example, https://gitlab.com/xsellier/good-winston-reporter.git clones into good-winston-reporter by default.
+		# So we instead force it to clone into the full repo name (good-winston-reporter.git)
+		error, output, retcode = run_command( "git clone " + repo_link + " " + repo_name, env=clone_env)
 		if retcode != 0:
 			print("ERROR cloning the repo. Exiting now.")
 			json_out["setup"] = {}
